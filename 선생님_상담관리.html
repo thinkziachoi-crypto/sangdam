@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정기평가 상담 관리</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; background: #f5f5f5; color: #111; }
+  .header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 16px 20px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+  .header h1 { font-size: 17px; font-weight: 600; }
+  .header .sub { font-size: 13px; color: #888; margin-left: auto; }
+  .container { max-width: 720px; margin: 0 auto; padding: 16px; }
+  .view { display: none; }
+  .view.active { display: block; }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat { background: #fff; border-radius: 12px; padding: 14px; text-align: center; border: 1px solid #e5e5e5; }
+  .stat-num { font-size: 26px; font-weight: 600; }
+  .stat-num.green { color: #1D9E75; }
+  .stat-num.blue { color: #185FA5; }
+  .stat-num.red { color: #c0392b; }
+  .stat-label { font-size: 12px; color: #888; margin-top: 4px; }
+  .prog-wrap { background: #fff; border-radius: 12px; padding: 14px 16px; border: 1px solid #e5e5e5; margin-bottom: 16px; }
+  .prog-bar { height: 8px; background: #eee; border-radius: 99px; overflow: hidden; margin: 8px 0; }
+  .prog-fill { height: 100%; background: #1D9E75; border-radius: 99px; transition: width .4s; }
+  .prog-label { font-size: 13px; color: #555; }
+  .section-title { font-size: 13px; font-weight: 600; color: #888; padding: 14px 0 6px; border-bottom: 1px solid #e5e5e5; margin-bottom: 2px; }
+  .student-row { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #f0f0f0; background: #fff; }
+  .student-row.done { background: #f0faf5; }
+  .s-name { font-size: 14px; font-weight: 500; min-width: 58px; }
+  .student-row.done .s-name { color: #1D9E75; text-decoration: line-through; }
+  .s-info { font-size: 12px; color: #888; flex: 1; }
+  .status-badge { font-size: 11px; padding: 3px 10px; border-radius: 99px; border: 1px solid #ddd; color: #888; cursor: pointer; user-select: none; }
+  .status-badge.missed { border-color: #c0392b; color: #c0392b; background: #fdf0ef; }
+  .status-badge.called { border-color: #185FA5; color: #185FA5; background: #eaf2fc; }
+  .status-badge.done { border-color: #1D9E75; color: #1D9E75; background: #edfaf4; }
+  .status-badge:hover { opacity: 0.7; }
+  .status-badge.active { font-weight: 700; }
+  .btn-group { display: flex; gap: 4px; margin-left: auto; flex-shrink: 0; }
+  .save-bar { position: sticky; bottom: 0; background: #fff; border-top: 1px solid #e5e5e5; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; margin: 0 -16px; z-index: 50; }
+  .save-bar .save-info { font-size: 13px; color: #e67e22; font-weight: 500; }
+  .save-btn { background: #1D9E75; color: #fff; border: none; border-radius: 8px; padding: 10px 28px; font-size: 15px; font-weight: 600; cursor: pointer; }
+  .save-btn:hover { background: #178a64; }
+  .save-btn:disabled { background: #aaa; cursor: default; }
+  .select-screen { display: flex; flex-direction: column; align-items: center; padding: 40px 16px; }
+  .select-screen h2 { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .select-screen p { font-size: 13px; color: #888; margin-bottom: 24px; }
+  .select-list { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .select-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; text-align: center; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .select-card:hover { border-color: #1D9E75; background: #f0faf5; }
+  .change-btn { font-size: 12px; color: #888; cursor: pointer; border: none; background: none; padding: 4px 8px; }
+  .change-btn:hover { color: #c0392b; }
+  .loading { text-align: center; padding: 40px; color: #888; font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1 id="header-title">정기평가 상담 관리</h1>
+  <span class="sub" id="header-sub"></span>
+  <button class="change-btn" id="change-btn" style="display:none;" onclick="changeTeacher()">선생님 변경</button>
+</div>
+<div class="container">
+  <div id="view-select" class="view active">
+    <div class="loading" id="loading-msg">데이터를 불러오는 중...</div>
+    <div class="select-screen" id="select-screen" style="display:none;">
+      <h2>선생님 선택</h2>
+      <p>본인 이름을 선택하세요. 다음부터 자동으로 본인 페이지가 열립니다.</p>
+      <div class="select-list" id="select-list"></div>
+    </div>
+  </div>
+  <div id="view-teacher" class="view">
+    <div class="stats-row" id="teacher-stats"></div>
+    <div class="prog-wrap">
+      <div class="prog-label" id="teacher-prog-label"></div>
+      <div class="prog-bar"><div class="prog-fill" id="teacher-prog-fill" style="width:0%"></div></div>
+    </div>
+    <div id="teacher-content"></div>
+    <div id="save-bar" class="save-bar" style="display:none;">
+      <span class="save-info" id="save-info"></span>
+      <button class="save-btn" id="save-btn" onclick="saveMyData()">저장</button>
+    </div>
+  </div>
+</div>
+<script>
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwNQ6wtCRUwQGozi9oS5wncSXD3RwUZ7uL0ccGzHN6gU4G62X1EjbRcxEHDcVv5waKy/exec';
+var allData = [];
+var myTeacher = null;
+
+var SNAP_KEY = 'teacherSnapshots';
+var NAME_KEY = 'myTeacherName';
+var teacherSnapshots = {};
+try { teacherSnapshots = JSON.parse(localStorage.getItem(SNAP_KEY)) || {}; } catch(e) {}
+
+function saveSnap() { localStorage.setItem(SNAP_KEY, JSON.stringify(teacherSnapshots)); }
+
+async function fetchData() {
+  try {
+    var res = await fetch(SCRIPT_URL + '?t=' + Date.now());
+    var json = await res.json();
+    if (json.status === 'ok') { allData = json.data; applySnapshots(); return true; }
+  } catch(e) {}
+  return false;
+}
+
+function applySnapshots() {
+  Object.keys(teacherSnapshots).forEach(function(teacher) {
+    var snap = teacherSnapshots[teacher];
+    for (var i = 0; i < allData.length; i++) {
+      if (allData[i].teacher === teacher) {
+        var match = snap.find(function(s) { return s.name === allData[i].name && s.class === allData[i].class; });
+        if (match) allData[i].status = match.status;
+      }
+    }
+  });
+}
+
+function escapeHtml(str) {
+  var div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function getCounts(rows) {
+  var done=0, called=0, missed=0;
+  rows.forEach(function(r) {
+    if(r.status==='기록완료') done++;
+    else if(r.status==='통화완료') called++;
+    else if(r.status==='부재중') missed++;
+  });
+  return { done: done, called: called, missed: missed, total: rows.length };
+}
+
+function renderStats(c) {
+  document.getElementById('teacher-stats').innerHTML =
+    '<div class="stat"><div class="stat-num">' + c.total + '</div><div class="stat-label">전체</div></div>' +
+    '<div class="stat"><div class="stat-num green">' + c.done + '</div><div class="stat-label">기록완료</div></div>' +
+    '<div class="stat"><div class="stat-num blue">' + c.called + '</div><div class="stat-label">통화완료</div></div>' +
+    '<div class="stat"><div class="stat-num red">' + c.missed + '</div><div class="stat-label">부재중</div></div>';
+}
+
+function getMyRows() {
+  return allData.filter(function(r) { return r.teacher === myTeacher; });
+}
+
+function renderTeacher() {
+  var rows = getMyRows();
+  var c = getCounts(rows);
+  var pct = c.total ? Math.round(c.done/c.total*100) : 0;
+  renderStats(c);
+  document.getElementById('teacher-prog-label').textContent = '기록완료 ' + pct + '% (' + c.done + '/' + c.total + '명)';
+  document.getElementById('teacher-prog-fill').style.width = pct + '%';
+
+  var classOrder = [];
+  rows.forEach(function(r) { if (classOrder.indexOf(r.class) === -1) classOrder.push(r.class); });
+  var html = '';
+  classOrder.forEach(function(cls) {
+    var students = rows.filter(function(r) { return r.class === cls; });
+    html += '<div class="section-title">' + escapeHtml(cls) + ' (' + students.length + '명)</div>';
+    students.forEach(function(s) {
+      var v = s.status || '';
+      function btnHtml(label, type) {
+        var isActive = v === label;
+        return '<span class="status-badge ' + type + (isActive ? ' active' : '') + '" ' +
+          'data-idx="' + allData.indexOf(s) + '" ' +
+          'data-status="' + label + '">' + label + '</span>';
+      }
+      html += '<div class="student-row' + (v==='기록완료'?' done':'') + '">' +
+        '<span class="s-name">' + escapeHtml(s.name) + '</span>' +
+        '<span class="s-info">' + escapeHtml(s.school || '') + ' &middot; ' + escapeHtml(s.phone || '') + '</span>' +
+        '<span class="btn-group">' +
+          btnHtml('기록완료', 'done') +
+          btnHtml('통화완료', 'called') +
+          btnHtml('부재중', 'missed') +
+        '</span>' +
+      '</div>';
+    });
+  });
+  document.getElementById('teacher-content').innerHTML = html;
+
+  var snap = teacherSnapshots[myTeacher];
+  var saveBar = document.getElementById('save-bar');
+  if (snap && snap.some(function(s) { return s._edited; })) {
+    var editCount = snap.filter(function(s) { return s._edited; }).length;
+    document.getElementById('save-info').textContent = editCount + '명 변경됨';
+    saveBar.style.display = 'flex';
+  } else {
+    saveBar.style.display = 'none';
+  }
+}
+
+document.getElementById('teacher-content').addEventListener('click', function(e) {
+  var badge = e.target.closest('.status-badge');
+  if (!badge) return;
+  var idx = parseInt(badge.dataset.idx);
+  var status = badge.dataset.status;
+  if (isNaN(idx) || idx < 0 || idx >= allData.length) return;
+  var row = allData[idx];
+
+  if (!teacherSnapshots[myTeacher]) {
+    teacherSnapshots[myTeacher] = getMyRows().map(function(r) { return Object.assign({}, r); });
+  }
+
+  var newStatus = (row.status === status) ? '' : status;
+  row.status = newStatus;
+
+  var snapRow = teacherSnapshots[myTeacher].find(function(s) { return s.name === row.name && s.class === row.class; });
+  if (snapRow) { snapRow.status = newStatus; snapRow._edited = true; }
+
+  saveSnap();
+  renderTeacher();
+});
+
+async function saveMyData() {
+  if (!myTeacher || !teacherSnapshots[myTeacher]) return;
+  var btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = '저장 중...';
+
+  var updates = teacherSnapshots[myTeacher]
+    .filter(function(s) { return s._edited; })
+    .map(function(s) { return { name: s.name, teacher: s.teacher, class: s.class, status: s.status }; });
+
+  try {
+    await fetch(SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'bulkUpdate', teacher: myTeacher, students: updates }),
+    });
+  } catch(e) {
+    console.error('저장 실패:', e);
+  }
+
+  teacherSnapshots[myTeacher].forEach(function(s) { delete s._edited; });
+  saveSnap();
+  btn.disabled = false;
+  btn.textContent = '저장';
+  renderTeacher();
+}
+
+function showView(id) {
+  document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+}
+
+function showSelectScreen() {
+  var teachers = [];
+  allData.forEach(function(r) { if (teachers.indexOf(r.teacher) === -1) teachers.push(r.teacher); });
+  document.getElementById('select-list').innerHTML = teachers.map(function(t) {
+    return '<div class="select-card" data-teacher="' + escapeHtml(t) + '">' + escapeHtml(t) + ' 선생님</div>';
+  }).join('');
+  document.getElementById('loading-msg').style.display = 'none';
+  document.getElementById('select-screen').style.display = '';
+  document.getElementById('header-title').textContent = '정기평가 상담 관리';
+  document.getElementById('header-sub').textContent = '';
+  document.getElementById('change-btn').style.display = 'none';
+  showView('view-select');
+}
+
+document.getElementById('select-list').addEventListener('click', function(e) {
+  var card = e.target.closest('.select-card');
+  if (!card) return;
+  var teacher = card.dataset.teacher;
+  localStorage.setItem(NAME_KEY, teacher);
+  myTeacher = teacher;
+  enterMyPage();
+});
+
+function enterMyPage() {
+  document.getElementById('header-title').textContent = myTeacher + ' 선생님';
+  document.getElementById('header-sub').textContent = '상담 관리';
+  document.getElementById('change-btn').style.display = '';
+  renderTeacher();
+  showView('view-teacher');
+}
+
+function changeTeacher() {
+  localStorage.removeItem(NAME_KEY);
+  myTeacher = null;
+  showSelectScreen();
+}
+
+async function init() {
+  var ok = await fetchData();
+  if (!ok) {
+    document.getElementById('loading-msg').textContent = '데이터를 불러올 수 없습니다. 페이지를 새로고침 해주세요.';
+    document.getElementById('loading-msg').style.color = '#c0392b';
+    return;
+  }
+
+  var saved = localStorage.getItem(NAME_KEY);
+  if (saved) {
+    myTeacher = saved;
+    enterMyPage();
+  } else {
+    showSelectScreen();
+  }
+
+  setInterval(async function() {
+    await fetchData();
+    if (myTeacher) renderTeacher();
+  }, 8000);
+}
+
+init();
+</script>
+</body>
+</html>
