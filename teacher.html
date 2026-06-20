@@ -217,14 +217,18 @@ async function saveMyData() {
   btn.textContent = '저장 중...';
 
   var updates = teacherSnapshots[myTeacher]
-    .filter(function(s) { return s._edited; })
-    .map(function(s) { return { name: s.name, teacher: s.teacher, class: s.class, status: s.status }; });
+    .filter(function(s) { return s._edited; });
 
   try {
-    await fetch(SCRIPT_URL, {
-      method: 'POST',
-      body: JSON.stringify({ action: 'bulkUpdate', teacher: myTeacher, students: updates }),
-    });
+    for (var i = 0; i < updates.length; i++) {
+      var s = updates[i];
+      var url = SCRIPT_URL +
+        '?action=update' +
+        '&teacher=' + encodeURIComponent(s.teacher) +
+        '&name=' + encodeURIComponent(s.name) +
+        '&status=' + encodeURIComponent(s.status);
+      await fetch(url);
+    }
   } catch(e) {
     console.error('저장 실패:', e);
   }
